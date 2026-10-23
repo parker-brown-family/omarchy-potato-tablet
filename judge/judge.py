@@ -92,7 +92,8 @@ def ffmpeg(*args: str, stdin: bytes | None = None) -> bytes:
 
 
 SHORT_SIDE_MIN = 288   # the API refuses a short side of 256 and takes 280 (measured 2026-10-23,
-                       # OpenRouter, jev-1.14); 288 is the size JevClient's own canary uses
+                       # OpenRouter, jev-1.14: 279 refused, 280 taken, whatever the area; the docs say
+                       # 256; parker-brown-family/jev-integrations#28). 288 is the canary's size
 LONG_SIDE_MAX = 1568
 
 
