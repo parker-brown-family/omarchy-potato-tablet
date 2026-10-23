@@ -34,6 +34,49 @@ tablet, and a link means someone else found it.
 - **Rendering cost scales with pixels.** 1200 × 1920 is 2.3 million pixels for eight Cortex-A53s
   to paint in software. We capped refresh at 10 Hz. *(ours)*
 
+## Omarchy without systemd, on an Android kernel
+
+All measured on the onn on 2026-10-23, Linux 4.19 with BusyBox as PID 1 and Arch in a chroot.
+
+- **Wi-Fi works without Android, through the stock vendor daemons.** Mount the vendor and system
+  partitions read-only, mount the APEX runtime, load `wmt_drv.ko`, run `wmt_loader` and
+  `wmt_launcher` under the bionic runtime with a small `LD_PRELOAD` that answers property lookups,
+  load the Wi-Fi modules, `printf 1 > /dev/wmtWifi`, then `wpa_supplicant` and `udhcpc`.
+  [The script](onn/boot.d/20-wifi.sh). *(ours)*
+- **The Wi-Fi MAC changes every boot** without Android's NVRAM service, so the router hands out a
+  new address every time. Pin one before associating. *(ours)*
+- **Vendor daemons can be 32-bit.** `fuelgauged` wanted `/apex/com.android.runtime/lib/bionic`,
+  `/system/lib` and `/vendor/lib`, not the `lib64` paths, and refused a 64-bit `LD_PRELOAD`.
+  *(ours)*
+- **Battery capacity reads -1 until the vendor fuel-gauge daemon runs.** Started, it went straight to
+  99. [The script](onn/boot.d/30-battery.sh). *(ours; cause found in a
+  [sibling 4.19 kernel](https://github.com/geevarghesest/android_kernel_mt8768t/blob/main/drivers/power/supply/mtk_battery.c))*
+- **pacman 7 fails twice**: Landlock is not in a 4.19 kernel, and its sandbox user may be missing.
+  `DisableSandbox` under `[options]` in `/etc/pacman.conf` fixes both. *(ours)*
+- **`systemd-sysusers` fails on 4.19** ("Protocol driver not attached"), so system users a package
+  expects may never be created. *(ours)*
+- **A mount made after the chroot's bind does not appear inside it.** `/run` and `/apex` were bound
+  into the Arch root at boot, so a later mount under either was invisible to the desktop: the
+  persistent home, and the APEX runtime that `/system/bin/linker64` points into. Bind again inside
+  the chroot's path. *(ours)*
+- **Omarchy restarts its shell through `systemd-cat`**, which needs the journal. A
+  [stand-in](onn/bin/systemd-cat) in `/usr/local/bin` that writes to `/tmp` makes Omarchy's own restart work.
+  *(ours)*
+- **Notifications and Ragtop's setup need the session bus address**, which lives only in Hyprland's
+  environment when the desktop runs under `dbus-run-session`. Read it from `/proc/<Hyprland>/environ`.
+  [desktop-env.sh](onn/bin/desktop-env.sh). *(ours)*
+- **Ragtop's keyboard needs `pkg-config`** (the `pkgconf` package) to generate its Wayland bindings;
+  without it the keyboard draws no letters. *(ours)*
+- **`reboot` inside the chroot is systemd's and does nothing.** Use BusyBox's `reboot -f` from the
+  outer environment. *(ours)*
+- **Ragtop rotates touch and screen with one transform**, which overwrites a touch calibration that
+  needs its own (the onn's is transform 3). Keep rotation locked until touch can carry an offset.
+  *(ours)*
+- **The accelerometer is not IIO on MediaTek 4.19.** Enable it with
+  `echo 0,0,66667000,0 > /sys/class/sensor/m_acc_misc/accbatch` and `echo 1 > .../accactive`, then read
+  `/sys/bus/platform/drivers/gsensor/sensordata` (hex x y z, about 9807 for one g). *(ours; path from the
+  [sibling kernel](https://github.com/geevarghesest/android_kernel_mt8768t/blob/main/drivers/misc/mediatek/sensors-1.0/accelerometer/accel.c))*
+
 ## Android tablets, keeping Android
 
 - **omarchy-android's installer wants Android 12 (API 31) or newer**, and its software-graphics

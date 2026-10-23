@@ -420,17 +420,31 @@ fn selftest(port: &Path, out: &Path) -> Res<()> {
     Ok(())
 }
 
+/// Run one script on the tablet and print its output: the kit's own shell into the tablet.
+fn exec_cmd(profile_path: &Path, script_path: &Path, out: &Path) -> Res<()> {
+    let p: Profile = read_toml(profile_path)?;
+    fs::create_dir_all(out).map_err(|e| e.to_string())?;
+    let port = find_port(&p.link.usb_vendor, &p.link.usb_product, &p.link.usb_serial)?;
+    let mut link = Link::open(&port, &out.join("serial.log"))?;
+    let script = fs::read_to_string(script_path).map_err(|e| format!("read {}: {e}", script_path.display()))?;
+    let (text, code) = link.exec(&script, Duration::from_secs(120))?;
+    let _ = link.send(b"stty echo 2>/dev/null\n");
+    println!("{text}");
+    if code == 0 { Ok(()) } else { Err(format!("script exited {code}")) }
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let flag = |name: &str| args.iter().position(|a| a == name).and_then(|i| args.get(i + 1)).map(PathBuf::from);
     let result = match (args.first().map(String::as_str), args.get(1), flag("--profile"), flag("--agent"), flag("--out")) {
         (Some("run"), Some(task), Some(profile), Some(agent), Some(out)) => run(Path::new(task), &profile, &agent, &out),
+        (Some("exec"), Some(script), Some(profile), _, Some(out)) => exec_cmd(&profile, Path::new(script), &out),
         (Some("selftest"), _, _, _, Some(out)) => match flag("--port") {
             Some(port) => selftest(&port, &out),
             None => Err("selftest needs --port".into()),
         },
         _ => {
-            eprintln!("usage: potato run <task.toml> --profile <profile.toml> --agent <potato-agent> --out <run-dir>\n       potato selftest --port <tty> --out <dir>");
+            eprintln!("usage: potato run <task.toml> --profile <profile.toml> --agent <potato-agent> --out <run-dir>\n       potato exec <script.sh> --profile <profile.toml> --out <dir>\n       potato selftest --port <tty> --out <dir>");
             return ExitCode::from(2);
         }
     };

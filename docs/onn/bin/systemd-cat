@@ -1,0 +1,16 @@
+#!/bin/sh
+# systemd-cat stand-in for the onn tablet, which runs without systemd or a journal. Omarchy launches
+# its shell through systemd-cat, so this runs the command with its output in /tmp/<tag>.log instead.
+tag=systemd-cat
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -t|--identifier) tag=$2; shift 2 ;;
+        --identifier=*) tag=${1#*=}; shift ;;
+        -p|--priority|--stderr-priority) shift 2 ;;
+        --) shift; break ;;
+        -*) shift ;;
+        *) break ;;
+    esac
+done
+[ $# -gt 0 ] || exec cat >>"/tmp/$tag.log"
+exec "$@" >>"/tmp/$tag.log" 2>&1

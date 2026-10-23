@@ -66,6 +66,17 @@ and `hello` settled it: transform 3, matrix `[0,1,0,-1,0,1]`.
 Every boot now checks itself before cancelling its return-to-Fastboot timer: compositor running,
 keyboard up, a window mapped, pixels that are not black, the Omarchy shell answering.
 
+## 9. Get it on the network, and keep everything across reboots
+
+Wi-Fi came up by hand at the end of night one, by running the stock MediaTek connectivity daemons
+without Android. Day two made it permanent. The boot image gained one line: run every script in
+`/etc/onn-omarchy/boot.d` on the Arch root. After that, what starts at boot is a file on disk, and
+no change needs a new boot image. Three scripts went there: [SSH](onn/boot.d/10-sshd.sh),
+[Wi-Fi](onn/boot.d/20-wifi.sh) with a pinned MAC address, and the [battery gauge](onn/boot.d/30-battery.sh).
+The image also binds a persistent home over the desktop's RAM home, so plugins survive. With a
+network, `pacman` installed Ragtop's dependencies and Gliff, and the kit's own synthetic taps
+clicked through Ragtop's setup.
+
 ## Tools we leaned on
 
 | Tool | For |
@@ -75,3 +86,4 @@ keyboard up, a window mapped, pixels that are not black, the Omarchy shell answe
 | a USB serial gadget | the only link once Android was gone |
 | framebuffer readback | the tablet's own screenshot, decoded on the laptop |
 | research-delight | the sourced research passes behind every choice |
+| [the diagnostic kit](../kit/README.md) | synthetic taps and checked screenshots, over serial or SSH |

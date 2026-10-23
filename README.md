@@ -8,12 +8,15 @@ what other people have done on theirs, and the tools both used.
 An onn 10.1" Tablet Pro from about 2020, MediaTek MT8768, that shipped with Android 11. It now
 boots Omarchy 4.0.6 natively, with nothing underneath.
 
-| | State on 2026-10-22 |
+| | State on 2026-10-23 |
 |---|---|
 | Desktop: Hyprland, the Omarchy shell, Foot | boots straight to it, and checks itself |
-| On-screen keyboard and touch typing | works, calibrated |
+| Wi-Fi and SSH | up about 20 seconds after power-on, every boot |
+| Tablet layer | Ragtop, in tablet mode, set up by the kit's own synthetic taps |
+| Battery level | real, from the vendor fuel-gauge daemon |
+| Packages | `pacman` over Wi-Fi |
 | Graphics | software only, capped at 10 Hz: the PowerVR GPU has no open driver |
-| Wi-Fi, audio, battery level | not yet |
+| Speakers, rotation, suspend | not yet |
 | Passwords between power-on and the desktop | none |
 
 The details are in [our tablet](docs/our-tablet.md) and the order we did it in is in

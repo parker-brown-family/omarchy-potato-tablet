@@ -14,7 +14,12 @@ long time. → **four gates**
 - [x] Slice 1 — tracer bullet: type hello, replaying Parker's recorded touch points into a sink.
       Passed on the onn on 2026-10-23 with all four observers (`docs/examples/type-hello-first-pass/`).
       The first run left the webcam not observed at Jev 0.46; a 36-point sink font fixed it.
-- [ ] Slice 2 — calibrate: four targets, fit the matrix from raw events
+- [ ] Slice 2 — calibrate: four targets, fit the matrix from raw events (waits for Parker's finger)
+- First regression caught, 2026-10-23: after Ragtop was installed, type-hello failed with the sink
+  receiving `nd..l`. Every tap landed one row low, because Ragtop's keyboard handle reserves a strip at
+  the bottom and wvkbd moved up 36 px (row 1512 to 1476). The replay's premise, keys where Parker typed
+  them, no longer holds; slice 3 (aim from the live layout) is the fix, or retiring wvkbd for Ragtop's
+  keyboard. Run: `runs/type-hello-20261023-114724` (local).
 - [ ] Slice 3 — any word: key centres from wvkbd's layout tables
 - [ ] Slice 4 — the rest of the task library
 - [ ] Slice 5 — the skill, and a published example record
