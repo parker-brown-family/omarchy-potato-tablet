@@ -246,12 +246,14 @@ fn desktop_env(p: &Profile) -> String {
     ) + &format!("HOMEDIR={}\nROOT={}\nRT={}\n", d.home, d.chroot, d.runtime_dir)
 }
 
+/// The sink is the kit's own terminal, so its text is sized for a webcam to read: at the desktop's
+/// 12-point font, a typed word through the C920 came back at Jev 0.46 (2026-10-23, first run).
 fn sink_open_script(p: &Profile) -> String {
     desktop_env(p) + r#"set -eu
 mkdir -p "$ROOT/tmp/potato"; : > "$ROOT/tmp/potato/typed"
 setsid chroot "$ROOT" /usr/bin/env -i PATH=/usr/bin:/bin HOME="$HOMEDIR" LANG=C.UTF-8 XDG_RUNTIME_DIR="$RT" \
     XDG_CONFIG_HOME="$HOMEDIR/.config" WAYLAND_DISPLAY="$W" \
-    /usr/bin/foot --title potato-sink /bin/sh -c 'stty -icanon min 1; exec cat >> /tmp/potato/typed' \
+    /usr/bin/foot --title potato-sink --font=monospace:size=36 /bin/sh -c 'stty -icanon min 1; exec cat >> /tmp/potato/typed' \
     </dev/null >/tmp/potato-sink.log 2>&1 &
 i=0
 while [ $i -lt 40 ]; do

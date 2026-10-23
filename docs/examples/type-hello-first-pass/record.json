@@ -1,0 +1,98 @@
+{
+  "format": 1,
+  "run": "type-hello-20261023-105435",
+  "tablet": "onn 10.1\" Tablet Pro",
+  "link": "USB serial /dev/ttyACM0",
+  "started": "2026-10-23T17:54:35Z",
+  "tasks": [
+    {
+      "task": "type-hello",
+      "title": "Type hello",
+      "kind": "regression",
+      "input": "synthetic",
+      "aim": {
+        "source": "replay",
+        "provenance": "Parker's five touch-downs (h, e, l, l, o) from the touch-postboot-hello recording, 2026-10-22",
+        "points": [
+          [
+            104,
+            998
+          ],
+          [
+            144,
+            563
+          ],
+          [
+            97,
+            1417
+          ],
+          [
+            102,
+            1401
+          ],
+          [
+            137,
+            1363
+          ]
+        ]
+      },
+      "calibration": "matrix [0.0, 1.0, 0.0, -1.0, 0.0, 1.0], from Parker's physical hello after the final reboot on 2026-10-22, confirmed in a framebuffer capture",
+      "acted": true,
+      "act_detail": "POTATO_TAP 0 104 998; POTATO_TAP 1 144 563; POTATO_TAP 2 97 1417; POTATO_TAP 3 102 1401; POTATO_TAP 4 137 1363; POTATO_RECORDED 960 bytes 40 events | sink: POTATO_SINK mapped after 1s; POTATO_ACTIVE \"title\": \"potato-sink\"; POTATO_CLIENTS_BEGIN; POTATO_CLIENTS_END",
+      "region": [
+        12,
+        530,
+        776,
+        478
+      ],
+      "started": "2026-10-23T17:54:35Z",
+      "finished": "2026-10-23T17:54:55Z",
+      "observers": {
+        "framebuffer": {
+          "answer": "pass",
+          "expected": "a newly opened terminal window shows the word hello",
+          "evidence": [
+            "framebuffer-before.rgba.gz",
+            "framebuffer-after.rgba.gz",
+            "framebuffer-before.png",
+            "framebuffer-after.png",
+            "framebuffer-before-crop.png",
+            "framebuffer-after-crop.png"
+          ],
+          "detail": "changed region x=15 y=792 306x144. Jev: after 0.98, before (control) 0.02; provisional thresholds 0.8/0.2",
+          "judged_by": "diff + jev"
+        },
+        "input_events": {
+          "answer": "pass",
+          "expected": "5 touch-downs, each at its aimed point",
+          "evidence": [
+            "events.bin"
+          ],
+          "detail": "5 touch-downs, each within 2 of its aim: [(104, 998), (144, 563), (97, 1417), (102, 1401), (137, 1363)]",
+          "judged_by": "exact"
+        },
+        "sink": {
+          "answer": "pass",
+          "expected": "the sink received exactly \"hello\"",
+          "evidence": [
+            "typed.txt"
+          ],
+          "detail": "received exactly 'hello'",
+          "judged_by": "exact"
+        },
+        "webcam": {
+          "answer": "pass",
+          "expected": "the tablet's screen shows a terminal with the word hello typed in it",
+          "evidence": [
+            "webcam-before.jpg",
+            "webcam-after.jpg",
+            "webcam-before-crop.png",
+            "webcam-after-crop.png"
+          ],
+          "detail": "changed region x=111 y=1002 281x157. Jev: after 0.98, before (control) 0.02; provisional thresholds 0.8/0.2",
+          "judged_by": "diff + jev"
+        }
+      }
+    }
+  ]
+}

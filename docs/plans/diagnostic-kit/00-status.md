@@ -11,11 +11,9 @@ long time. → **four gates**
 - Gates 3 and 4 — Program design and slices: collapsed into `03-plan.md`, building
 
 ## Slices
-- [ ] Slice 1 — tracer bullet: type hello, replaying Parker's recorded touch points into a sink.
-      Built and tested off the tablet on 2026-10-23: the agent's events match the panel's byte
-      for byte under qemu; the serial protocol passes against the tablet's BusyBox on a pty (and
-      fails when its upload is broken on purpose); the judge passes yesterday's real hello pair and
-      fails it swapped. Waiting on the uaccess udev rule to run on the tablet.
+- [x] Slice 1 — tracer bullet: type hello, replaying Parker's recorded touch points into a sink.
+      Passed on the onn on 2026-10-23 with all four observers (`docs/examples/type-hello-first-pass/`).
+      The first run left the webcam not observed at Jev 0.46; a 36-point sink font fixed it.
 - [ ] Slice 2 — calibrate: four targets, fit the matrix from raw events
 - [ ] Slice 3 — any word: key centres from wvkbd's layout tables
 - [ ] Slice 4 — the rest of the task library
@@ -27,8 +25,9 @@ long time. → **four gates**
 - The tablet is the onn 10.1" Tablet Pro, booting Omarchy natively. It has no Wi-Fi, so the only
   link is the USB serial gadget (`1d6b:0104`, serial `onn-native-0`), driven by `native-exec.py`
   in the private onn-omarchy workspace.
-- An agent cannot open that serial port without sudo until Parker installs a udev rule tagging
-  the gadget `uaccess`. Until then, nothing in this plan has run on the tablet.
+- The serial port is opened without sudo through a uaccess udev rule, `kit/udev/70-onn-tablet.rules`,
+  installed 2026-10-23. The copy Parker pasted that day wrapped onto two lines and fails
+  `udevadm verify`; its second line still tags the gadget, so access works until it is replaced.
 - A Logitech C920 is attached to the laptop as `/dev/video2`, fixed above the tablet since
   2026-10-23. Its frames come out a quarter-turn from the tablet; `transpose=2` (90° counter-
   clockwise) makes them upright. Frames stay off the public repository.

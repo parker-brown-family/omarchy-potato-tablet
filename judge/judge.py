@@ -91,12 +91,26 @@ def ffmpeg(*args: str, stdin: bytes | None = None) -> bytes:
     return r.stdout
 
 
+SHORT_SIDE_MIN = 288   # the API refuses a short side of 256 and takes 280 (measured 2026-10-23,
+                       # OpenRouter, jev-1.14); 288 is the size JevClient's own canary uses
+LONG_SIDE_MAX = 1568
+
+
+def fit_for_jev(w: int, h: int) -> str:
+    """A scale filter that brings a crop inside the API's image limits. A 132 x 81 crop of a typed
+    word was refused for size, and so was the same crop at 417 x 256. Never shrinks a crop that
+    already fits; enlarges the short side to SHORT_SIDE_MIN, keeping the long side within the max."""
+    k = max(1.0, SHORT_SIDE_MIN / min(w, h))
+    k = min(k, LONG_SIDE_MAX / max(w, h))
+    return f"scale={max(SHORT_SIDE_MIN, round(w * k))}:{max(SHORT_SIDE_MIN, round(h * k))}:flags=lanczos"
+
+
 def framebuffer_png(raw: bytes, fb: dict, out: Path, crop: tuple[int, int, int, int] | None = None) -> None:
     w_padded = fb["stride"] // 4
     vf = f"crop={fb['width']}:{fb['height']}:0:0"
     if crop:
         x, y, w, h = crop
-        vf = f"crop={w}:{h}:{x}:{y}"
+        vf = f"crop={w}:{h}:{x}:{y},{fit_for_jev(w, h)}"
     ffmpeg("-f", "rawvideo", "-pixel_format", "rgba", "-video_size", f"{w_padded}x{fb['height']}", "-i", "-",
            "-vf", vf, "-pix_fmt", "rgb24", "-frames:v", "1", "-y", str(out), stdin=raw)
 
@@ -198,7 +212,8 @@ def ask_word(jev: JevClient, before_png: Path, after_png: Path, word: str) -> tu
 
 def judge_framebuffer(run: Path, obs: dict, fb: dict, word: str, jev: JevClient | None, region):
     """Answer the framebuffer observer, and return the changed box (framebuffer pixels) or None."""
-    names = obs["evidence"]
+    names = [n for n in obs["evidence"] if n.endswith(".rgba.gz")]   # the captures, not an earlier judge's crops
+    obs["evidence"] = list(names)
     if len(names) != 2:
         answer(obs, "not_observed", "a framebuffer capture is missing", "exact")
         return None
@@ -226,7 +241,8 @@ def judge_webcam(run: Path, obs: dict, word: str, jev: JevClient | None, fb: dic
     """The framebuffer says where the change is; the webcam says whether the glass shows it. A
     diff of two webcam frames finds sensor noise everywhere (measured 2026-10-23), so the crop
     comes from the framebuffer's changed box, carried onto the screen as the camera sees it."""
-    names = obs["evidence"]
+    names = [n for n in obs["evidence"] if n.endswith(".jpg")]       # the captures, not an earlier judge's crops
+    obs["evidence"] = list(names)
     if len(names) != 2:
         return answer(obs, "not_observed", "a webcam frame is missing", "exact")
     sw, sh = 270, 480   # the upright frame is 1080 x 1920; a quarter-size grid is enough to find a word
@@ -244,7 +260,7 @@ def judge_webcam(run: Path, obs: dict, word: str, jev: JevClient | None, fb: dic
     x, y = int(sx + target[0] * kx), int(sy + target[1] * ky)
     x, y, w, h = pad((x, y, int(target[2] * kx) + 1, int(target[3] * ky) + 1), 24, 1080, 1920)
     for n, out in zip(names, ("webcam-before-crop.png", "webcam-after-crop.png")):
-        ffmpeg("-i", str(run / n), "-vf", f"crop={w}:{h}:{x}:{y}", "-frames:v", "1", "-y", str(run / out))
+        ffmpeg("-i", str(run / n), "-vf", f"crop={w}:{h}:{x}:{y},{fit_for_jev(w, h)}", "-frames:v", "1", "-y", str(run / out))
     obs["evidence"] += ["webcam-before-crop.png", "webcam-after-crop.png"]
     if jev is None:
         return answer(obs, "not_observed", "no Jev key to read the frame", "exact")
@@ -299,6 +315,16 @@ figure{{margin:0}} img{{width:100%;border-radius:8px;border:1px solid var(--line
 """
 
 
+def guarded(obs: dict, fn, *args):
+    """Run one observer's judgment. If the judge itself breaks, that observer could not be read:
+    it answers not_observed with the error, and the other observers are still judged."""
+    try:
+        return fn(*args)
+    except Exception as e:   # noqa: BLE001 — any failure here is a fact about this observer only
+        answer(obs, "not_observed", f"the judge failed: {type(e).__name__}: {e}", "error")
+        return None
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("run", type=Path)
@@ -316,11 +342,12 @@ def main() -> int:
             for o in obs.values():
                 answer(o, "not_attempted", t.get("act_detail") or "the act did not run", "exact")
             continue
-        judge_input_events(a.run, obs["input_events"], t, spec["expect"]["taps"])
-        judge_sink(a.run, obs["sink"], spec["expect"]["sink_text"])
+        word = spec["expect"]["sink_text"]
         region = tuple(t["region"]) if t.get("region") else None
-        fb_box = judge_framebuffer(a.run, obs["framebuffer"], profile["framebuffer"], spec["expect"]["sink_text"], jev, region)
-        judge_webcam(a.run, obs["webcam"], spec["expect"]["sink_text"], jev, profile["framebuffer"], region, fb_box)
+        guarded(obs["input_events"], judge_input_events, a.run, obs["input_events"], t, spec["expect"]["taps"])
+        guarded(obs["sink"], judge_sink, a.run, obs["sink"], word)
+        fb_box = guarded(obs["framebuffer"], judge_framebuffer, a.run, obs["framebuffer"], profile["framebuffer"], word, jev, region)
+        guarded(obs["webcam"], judge_webcam, a.run, obs["webcam"], word, jev, profile["framebuffer"], region, fb_box)
     (a.run / "record.json").write_text(json.dumps(record, indent=2) + "\n")
     (a.run / "index.html").write_text(page(record))
     for t in record["tasks"]:

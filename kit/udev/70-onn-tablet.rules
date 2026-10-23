@@ -1,0 +1,2 @@
+# The onn tablet's native USB serial gadget, opened by the logged-in user so the kit needs no sudo.
+SUBSYSTEM=="tty", ENV{ID_VENDOR_ID}=="1d6b", ENV{ID_MODEL_ID}=="0104", ENV{ID_SERIAL_SHORT}=="onn-native-0", TAG+="uaccess"

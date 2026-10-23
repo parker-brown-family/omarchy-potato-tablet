@@ -45,8 +45,8 @@ The judge needs `jev-integrations` beside this repository (or `JEV_INTEGRATIONS`
 observers `not_observed`. Runs stay out of git: webcam frames can show a room.
 
 The serial port needs read and write access. On Linux, tag the tablet's gadget for the logged-in
-user (the onn's values shown):
+user. The onn's rule is a file, so it cannot wrap when pasted:
 
 ```sh
-echo 'SUBSYSTEM=="tty", ENV{ID_VENDOR_ID}=="1d6b", ENV{ID_MODEL_ID}=="0104", ENV{ID_SERIAL_SHORT}=="onn-native-0", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/70-onn-tablet.rules
+sudo cp udev/70-onn-tablet.rules /etc/udev/rules.d/ && sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=tty
 ```
