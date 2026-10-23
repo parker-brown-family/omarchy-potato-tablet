@@ -48,6 +48,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("run", type=Path)
     ap.add_argument("--profile", type=Path, required=True)
+    ap.add_argument("--clean", action="store_true", help="no captions: walk-split-clean.mp4, for a film that titles its own steps")
     a = ap.parse_args()
     run, prof = a.run, tomllib.loads(a.profile.read_text())
     timeline = json.loads((run / "film.json").read_text())
@@ -117,7 +118,7 @@ def main() -> int:
     graph.append(f"[2:v]setpts=PTS-STARTPTS,{cam_filter},scale=-2:{fb_h},format=yuv420p[cam]")
     graph.append(f"[{last}][cam]hstack=inputs=2[both]")
     last = "both"
-    for n, (t0, t1, title, t_after, verdict) in enumerate(cues):
+    for n, (t0, t1, title, t_after, verdict) in enumerate([] if a.clean else cues):
         tf, vf = run / f".cue-{n}-title.txt", run / f".cue-{n}-verdict.txt"
         tf.write_text(title)
         vf.write_text(verdict)
@@ -128,7 +129,7 @@ def main() -> int:
         last = f"v{n}"
     ffmpeg("-f", "concat", "-safe", "0", "-i", str(lst), "-loop", "1", "-i", str(ring), "-i", str(run / "film.mkv"),
            "-filter_complex", ";".join(graph), "-map", f"[{last}]", "-t", f"{total:.2f}",
-           "-c:v", "libx264", "-crf", "21", "-preset", "fast", "-pix_fmt", "yuv420p", str(run / "walk-split.mp4"))
+           "-c:v", "libx264", "-crf", "21", "-preset", "fast", "-pix_fmt", "yuv420p", str(run / ("walk-split-clean.mp4" if a.clean else "walk-split.mp4")))
     for f in run.glob(".cue-*.txt"):
         f.unlink()
     print(f"{run / 'walk-camera.mp4'}\n{run / 'walk-split.mp4'}\n{run / 'walk-chapters.txt'}  ({total:.0f} s, {len(marks)} touches)")
