@@ -6,8 +6,8 @@ expensive mistake is a "pass" that really meant "could not see", and it can stay
 long time. → **four gates**
 **Turned out to be:** _filled in at the end_
 
-- Gate 1 — Product: in progress
-- Gate 2 — Architecture: pending
+- Gate 1 — Product: APPROVED 2026-10-23 (onn only for now; C920 fixed above the tablet; *type hello* is the tracer bullet; frames judged as recommended)
+- Gate 2 — Architecture: in progress
 - Gate 3 — Program Design: pending
 - Gate 4 — Slice plan: pending
 
@@ -23,7 +23,8 @@ long time. → **four gates**
   in the private onn-omarchy workspace.
 - An agent cannot open that serial port without sudo until Parker installs a udev rule tagging
   the gadget `uaccess`. Until then, nothing in this plan has run on the tablet.
-- A Logitech C920 is attached to the laptop as `/dev/video2`. It has not been pointed at the
-  tablet yet.
+- A Logitech C920 is attached to the laptop as `/dev/video2`, fixed above the tablet since
+  2026-10-23. Its frames come out a quarter-turn from the tablet; `transpose=2` (90° counter-
+  clockwise) makes them upright. Frames stay off the public repository.
 - Gliff 0.4.0 is installed on the laptop. It forwards keyboard and pointer, not touch, and needs
   a network the tablet does not yet have.
