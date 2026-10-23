@@ -41,3 +41,18 @@ home = "/run/onn-probe/home"
 device = "/dev/video2"
 size = "1920x1080"
 filter = "transpose=2"
+
+[keyboard]
+# wvkbd's desktop layout, as drawn above Ragtop's handle. The kit finds the keys in the framebuffer
+# each time it types (potato-agent keys) and labels them by order; these labels were read off the
+# screen on 2026-10-23, when the finder returned rows of 14, 14, 14, 14, 13 and 10 keys.
+layer = "wvkbd"
+threshold = 25
+rows = [
+  ["Esc", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "Del"],
+  ["`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "BackSpace"],
+  ["Tab", "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "[", "]", "\\"],
+  ["Cmp", "Caps", "a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "'", "Enter"],
+  ["Shift", "z", "x", "c", "v", "b", "n", "m", ",", ".", "/", "Up", "Shift"],
+  ["Layout", "Ctrl", "Super", "Alt", "space", "AltGr", "Ctrl", "Left", "Down", "Right"],
+]

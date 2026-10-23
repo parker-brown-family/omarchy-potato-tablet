@@ -72,6 +72,23 @@ All measured on the onn on 2026-10-23, Linux 4.19 with BusyBox as PID 1 and Arch
 - **Ragtop rotates touch and screen with one transform**, which overwrites a touch calibration that
   needs its own (the onn's is transform 3). Keep rotation locked until touch can carry an offset.
   *(ours)*
+- **BusyBox init brings up no network interfaces, loopback included.** Anything that binds
+  `127.0.0.1` fails with "Cannot assign requested address" until `ip link set lo up`.
+  [The hook](onn/boot.d/05-loopback.sh). *(ours)*
+- **Omarchy 4's Hyprland takes Lua from `hyprctl dispatch`.** `hyprctl dispatch fullscreen 1` is a
+  Lua syntax error now; it is `hyprctl dispatch 'hl.dsp.window.fullscreen({ mode = "maximized" })'`,
+  and focusing a window is `hl.dsp.focus({ window = "title:^…$" })`. *(ours, Hyprland 0.56.2)*
+- **Omarchy's web-app launcher needs systemd**: `omarchy-launch-webapp` ends in `uwsm-app`.
+  [`onn-webapp`](onn/bin/onn-webapp) opens the same Chromium app window without it. *(ours)*
+- **Chromium as root needs three flags**: `--no-sandbox` or it will not start, `--test-type` to
+  hide the warning bar that adds, and `--password-store=basic`, or it asks for a new keyring password,
+  then for that password on every boot. They go in `chromium-flags.conf`, which every launch
+  reads. [Ours](onn/bin/chromium-flags.conf). *(ours)*
+- **Chromium ignores a DevTools port on its default profile.** Give it its own `--user-data-dir`.
+  *(ours)*
+- **The kernel drops a touch coordinate that repeats the slot's last one.** Two taps at the same X
+  record no X for the second. Anything reading raw touch events must start from where the slot
+  stood (`EVIOCGMTSLOTS`). *(ours)*
 - **The accelerometer is not IIO on MediaTek 4.19.** Enable it with
   `echo 0,0,66667000,0 > /sys/class/sensor/m_acc_misc/accbatch` and `echo 1 > .../accactive`, then read
   `/sys/bus/platform/drivers/gsensor/sensordata` (hex x y z, about 9807 for one g). *(ours; path from the

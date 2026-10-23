@@ -6,6 +6,10 @@
 //! command goes over as a base64 script and its output comes back between sentinel lines that are
 //! unique to that command, the protocol the onn bring-up's native-exec.py established.
 //! Judging is not done here: every observer is written with `answer: null`.
+//!
+//! `potato journey` walks through an app instead: see journey.rs.
+
+mod journey;
 
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use potato_record::{now_utc, Aim, Input, Observation, Record, TaskKind, TaskRun, FORMAT};
@@ -32,6 +36,7 @@ struct Profile {
     calibration: CalibrationSection,
     desktop: DesktopSection,
     webcam: Option<WebcamSection>,
+    keyboard: Option<journey::KeyboardSection>,
 }
 #[derive(Deserialize)]
 struct TabletSection { name: String }
@@ -40,7 +45,7 @@ struct LinkSection { usb_vendor: String, usb_product: String, usb_serial: String
 #[derive(Deserialize)]
 struct TouchSection { device: String, x_max: i32, y_max: i32 }
 #[derive(Deserialize)]
-struct FbSection { device: String, height: u32, stride: u32 }
+struct FbSection { device: String, width: u32, height: u32, stride: u32 }
 #[derive(Deserialize)]
 struct CalibrationSection { matrix: Vec<f64>, source: String }
 #[derive(Deserialize)]
@@ -270,13 +275,13 @@ echo POTATO_CLIENTS_END
 "#
 }
 
-fn act_script(p: &Profile, aim: &TaskAim, seconds: u64) -> String {
-    let ats: String = aim.points.iter().map(|[x, y]| format!(" --at {x},{y}")).collect();
+fn act_script(p: &Profile, points: &[[i32; 2]], hold_ms: u64, gap_ms: u64, seconds: u64) -> String {
+    let ats: String = points.iter().map(|[x, y]| format!(" --at {x},{y}")).collect();
     format!(
-        "set -eu\nA=/run/potato/potato-agent\nrm -f /run/potato/events.bin\n\
+        "set -eu\nA=/run/potato/potato-agent\nrm -f /run/potato/events.bin /run/potato/events.bin.start\n\
          $A record --dev {dev} --seconds {seconds} --out /run/potato/events.bin >/run/potato/record.log 2>&1 &\nR=$!\nsleep 1\n\
          $A tap --dev {dev}{ats} --hold-ms {hold} --gap-ms {gap}\nwait $R\ncat /run/potato/record.log\n",
-        dev = p.touch.device, hold = aim.hold_ms, gap = aim.gap_ms
+        dev = p.touch.device, hold = hold_ms, gap = gap_ms
     )
 }
 
@@ -288,6 +293,22 @@ fn sink_region(sink_out: &str) -> Option<[i32; 4]> {
     let at = sink["at"].as_array()?;
     let size = sink["size"].as_array()?;
     Some([at.first()?.as_i64()? as i32, at.get(1)?.as_i64()? as i32, size.first()?.as_i64()? as i32, size.get(1)?.as_i64()? as i32])
+}
+
+/// The agent goes into RAM once per boot, verified by hash.
+fn ensure_agent(link: &mut Link, agent_path: &Path, out: &Path) -> Res<String> {
+    let agent = fs::read(agent_path).map_err(|e| format!("read {}: {e}", agent_path.display()))?;
+    let want = sha256(&agent, out)?;
+    let (have, _) = link.exec("sha256sum /run/potato/potato-agent 2>/dev/null || true\n", Duration::from_secs(20))?;
+    if have.starts_with(&want) {
+        return Ok("agent already on the tablet".into());
+    }
+    link.put(&agent, "/run/potato/potato-agent")?;
+    let (check, _) = link.exec("chmod 755 /run/potato/potato-agent\nsha256sum /run/potato/potato-agent\n", Duration::from_secs(60))?;
+    if !check.contains(&want) {
+        return Err(format!("agent upload did not verify: {check}"));
+    }
+    Ok("agent uploaded and verified".into())
 }
 
 fn observer(expected: &str, evidence: &[&str]) -> Observation {
@@ -306,20 +327,7 @@ fn run(task_path: &Path, profile_path: &Path, agent_path: &Path, out: &Path) -> 
     let started = now_utc();
     let port = find_port(&p.link.usb_vendor, &p.link.usb_product, &p.link.usb_serial)?;
     let mut link = Link::open(&port, &out.join("serial.log"))?;
-    let mut notes = Vec::new();
-
-    // The agent goes into RAM once per boot, verified by hash.
-    let agent = fs::read(agent_path).map_err(|e| format!("read {}: {e}", agent_path.display()))?;
-    let want = sha256(&agent, out)?;
-    let (have, _) = link.exec("sha256sum /run/potato/potato-agent 2>/dev/null || true\n", Duration::from_secs(20))?;
-    if !have.starts_with(&want) {
-        link.put(&agent, "/run/potato/potato-agent")?;
-        let (check, _) = link.exec("chmod 755 /run/potato/potato-agent\nsha256sum /run/potato/potato-agent\n", Duration::from_secs(60))?;
-        if !check.contains(&want) {
-            return Err(format!("agent upload did not verify: {check}"));
-        }
-        notes.push("agent uploaded and verified".to_string());
-    }
+    let mut notes = vec![ensure_agent(&mut link, agent_path, out)?];
 
     let evidence = |name: &str, r: Res<()>, notes: &mut Vec<String>| -> Option<String> {
         match r { Ok(()) => Some(name.to_string()), Err(e) => { notes.push(format!("{name}: {e}")); None } }
@@ -336,7 +344,7 @@ fn run(task_path: &Path, profile_path: &Path, agent_path: &Path, out: &Path) -> 
 
     let (acted, act_detail) = if sink_ok {
         let seconds = 3 + (t.aim.points.len() as u64 * (t.aim.hold_ms + t.aim.gap_ms)).div_ceil(1000) + 2;
-        let (act_out, act_code) = link.exec(&act_script(&p, &t.aim, seconds), Duration::from_secs(seconds + 30))?;
+        let (act_out, act_code) = link.exec(&act_script(&p, &t.aim.points, t.aim.hold_ms, t.aim.gap_ms, seconds), Duration::from_secs(seconds + 30))?;
         (Some(act_code == 0), act_out.lines().filter(|l| l.starts_with("POTATO_")).collect::<Vec<_>>().join("; "))
     } else {
         (Some(false), "not run: the sink window never mapped, so taps would have gone to whatever had focus".to_string())
@@ -347,17 +355,19 @@ fn run(task_path: &Path, profile_path: &Path, agent_path: &Path, out: &Path) -> 
     let cam_after = evidence("webcam-after.jpg", capture_webcam(&p, &out.join("webcam-after.jpg")), &mut notes);
     let typed = evidence("typed.txt", link.get(&format!("{}/tmp/potato/typed", p.desktop.chroot), Duration::from_secs(30))
         .and_then(|b| fs::write(out.join("typed.txt"), b).map_err(|e| e.to_string())), &mut notes);
-    let events = if acted == Some(true) {
-        evidence("events.bin", link.get("/run/potato/events.bin", Duration::from_secs(60))
-            .and_then(|b| fs::write(out.join("events.bin"), b).map_err(|e| e.to_string())), &mut notes)
-    } else { None };
+    let (events, events_start) = if acted == Some(true) {
+        (evidence("events.bin", link.get("/run/potato/events.bin", Duration::from_secs(60))
+            .and_then(|b| fs::write(out.join("events.bin"), b).map_err(|e| e.to_string())), &mut notes),
+         evidence("events.start", link.get("/run/potato/events.bin.start", Duration::from_secs(20))
+            .and_then(|b| fs::write(out.join("events.start"), b).map_err(|e| e.to_string())), &mut notes))
+    } else { (None, None) };
     let _ = link.exec("pkill -f 'title potato-sink' || true\n", Duration::from_secs(20));
     let _ = link.send(b"stty echo 2>/dev/null\n");
     link.drain();
 
     let some = |v: &[&Option<String>]| -> Vec<String> { v.iter().filter_map(|o| (*o).clone()).collect() };
     let mut observers = BTreeMap::new();
-    let ev = some(&[&events]);
+    let ev = some(&[&events, &events_start]);
     let sk = some(&[&typed]);
     let fb = some(&[&fb_before, &fb_after]);
     let cam = some(&[&cam_before, &cam_after]);
@@ -438,13 +448,14 @@ fn main() -> ExitCode {
     let flag = |name: &str| args.iter().position(|a| a == name).and_then(|i| args.get(i + 1)).map(PathBuf::from);
     let result = match (args.first().map(String::as_str), args.get(1), flag("--profile"), flag("--agent"), flag("--out")) {
         (Some("run"), Some(task), Some(profile), Some(agent), Some(out)) => run(Path::new(task), &profile, &agent, &out),
+        (Some("journey"), Some(j), Some(profile), Some(agent), Some(out)) => journey::journey(Path::new(j), &profile, &agent, &out, args.iter().any(|a| a == "--film")),
         (Some("exec"), Some(script), Some(profile), _, Some(out)) => exec_cmd(&profile, Path::new(script), &out),
         (Some("selftest"), _, _, _, Some(out)) => match flag("--port") {
             Some(port) => selftest(&port, &out),
             None => Err("selftest needs --port".into()),
         },
         _ => {
-            eprintln!("usage: potato run <task.toml> --profile <profile.toml> --agent <potato-agent> --out <run-dir>\n       potato exec <script.sh> --profile <profile.toml> --out <dir>\n       potato selftest --port <tty> --out <dir>");
+            eprintln!("usage: potato run <task.toml> --profile <profile.toml> --agent <potato-agent> --out <run-dir>\n       potato journey <journey.toml> --profile <profile.toml> --agent <potato-agent> --out <run-dir> [--film]\n       potato exec <script.sh> --profile <profile.toml> --out <dir>\n       potato selftest --port <tty> --out <dir>");
             return ExitCode::from(2);
         }
     };
@@ -473,9 +484,8 @@ mod tests {
 
     #[test]
     fn the_act_script_taps_every_aimed_point_in_order() {
-        let aim = TaskAim { source: "replay".into(), provenance: "test".into(), points: vec![[104, 998], [144, 563]], hold_ms: 80, gap_ms: 350 };
         let p: Profile = toml::from_str(include_str!("../../../profiles/onn-10-pro.toml")).unwrap();
-        let s = act_script(&p, &aim, 9);
+        let s = act_script(&p, &[[104, 998], [144, 563]], 80, 350, 9);
         assert!(s.contains("tap --dev /dev/input/event3 --at 104,998 --at 144,563 --hold-ms 80 --gap-ms 350"), "{s}");
         assert!(s.contains("record --dev /dev/input/event3 --seconds 9"), "{s}");
     }

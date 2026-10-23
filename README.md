@@ -10,7 +10,8 @@ boots Omarchy 4.0.6 natively, with nothing underneath.
 
 | | State on 2026-10-23 |
 |---|---|
-| Desktop: Hyprland, the Omarchy shell, Foot | boots straight to it, and checks itself |
+| Desktop: Hyprland, the Omarchy shell, Foot | boots straight to it in about 30 seconds (filmed), and checks itself |
+| Apps, by touch | a children's web app walked through in nine touches, typing and a scroll included, each checked by the app, the screen and a webcam |
 | Wi-Fi and SSH | up about 20 seconds after power-on, every boot |
 | Tablet layer | Ragtop, in tablet mode, set up by the kit's own synthetic taps |
 | Battery level | real, from the vendor fuel-gauge daemon |
@@ -41,11 +42,15 @@ The details are in [our tablet](docs/our-tablet.md) and the order we did it in i
 | Windows, on Intel or AMD | install the Omarchy ISO, then add a tablet layer such as Ragtop | Surface Go, Pro and Book, Lenovo Yoga, Framework 12 |
 | iOS | a native port, one model at a time | iPad 6 |
 
+## The diagnostic kit
+
+[The kit](kit/README.md) tests a tablet by itself. It touches the screen through the touchscreen's
+own input device, aimed at where things are drawn at that moment, then checks the result four ways:
+the kernel's events, the app's own state, the tablet's screenshot and a webcam above the glass.
+Its plan and progress are in [the status page](docs/plans/diagnostic-kit/00-status.md).
+
 ## Coming
 
-- A diagnostic kit that tests a tablet by itself: it taps the screen through a virtual touch
-  device, then checks what changed in the tablet's own screenshot and through a webcam
-  ([plan](docs/plans/diagnostic-kit/00-status.md)).
 - The onn port's code, once it has had a publishing pass.
 
 ## Licence

@@ -77,6 +77,18 @@ The image also binds a persistent home over the desktop's RAM home, so plugins s
 network, `pacman` installed Ragtop's dependencies and Gliff, and the kit's own synthetic taps
 clicked through Ragtop's setup.
 
+## 10. Put a real app on it, and walk through it by touch
+
+Touch working on the desktop is not the same as a tablet that works. The test program was Orthodox
+Lampada, a children's web app built to run on a tablet. Chromium went on with `pacman`, the app was
+copied to the tablet's disk and served on its loopback at boot, and [`onn-webapp`](onn/bin/onn-webapp)
+opened it in an app window. The kit then [walked through it](../kit/README.md#walk-through-an-app) in nine
+touches: the calendar, a day, back twice, the saints, `lion` typed on the on-screen keyboard, a scroll,
+a saint, and closing the panel. Each touch was aimed at where the element was drawn at that moment,
+and each was checked by the app's own state, the framebuffer and the webcam. The fourth take passed
+on all 36 checks, and the webcam filmed it. A filmed cold reboot reached the desktop in about 30
+seconds.
+
 ## Tools we leaned on
 
 | Tool | For |

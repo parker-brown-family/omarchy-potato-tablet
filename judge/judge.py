@@ -3,8 +3,8 @@
 
     python3 judge/judge.py <run-dir> --profile profiles/onn-10-pro.toml
 
-Exact where the expectation is exact: the sink's text, the number of touch-downs and where they
-landed. For the framebuffer and the webcam, code finds the region that changed between "before"
+Exact where the expectation is exact: the sink's text, the app's own state after a journey step,
+the number of touch-downs and where they landed. For the framebuffer and the webcam, code finds the region that changed between "before"
 (the empty sink) and "after", and Jev reads the crop. The same crop of "before" is asked the same
 question as a control, so a word that was already on screen cannot pass.
 
@@ -42,10 +42,13 @@ EVENT = struct.Struct("<qqHHi")
 
 # ---- exact observers ------------------------------------------------------------------------------
 
-def touch_downs(path: Path) -> list[tuple[int, int]]:
-    """First position of every contact, in order. Positions may arrive before the tracking id."""
+def touch_downs(path: Path, start: tuple[int, int] | None = None) -> list[tuple[int, int]]:
+    """First position of every contact, in order. Positions may arrive before the tracking id, and
+    a position equal to the slot's last one is not sent at all, so the recording starts from where
+    the slot stood (`start`) when that is known, and from nothing when it is not."""
     raw = path.read_bytes()
-    downs, x, y, open_contact, placed = [], None, None, False, False
+    downs, open_contact, placed = [], False, False
+    x, y = start if start else (None, None)
     for i in range(0, len(raw) - EVENT.size + 1, EVENT.size):
         _, _, typ, code, val = EVENT.unpack_from(raw, i)
         if (typ, code) == (3, 53):
@@ -63,7 +66,13 @@ def touch_downs(path: Path) -> list[tuple[int, int]]:
 def judge_input_events(run: Path, obs: dict, task: dict, expect_taps: int) -> None:
     if not obs["evidence"]:
         return answer(obs, "not_observed", "no event recording came back from the tablet", "exact")
-    downs = touch_downs(run / obs["evidence"][0])
+    events = next(f for f in obs["evidence"] if f.endswith(".bin"))
+    start = None
+    for f in obs["evidence"]:
+        if f.endswith(".start"):
+            words = (run / f).read_text().split()
+            start = (int(words[0]), int(words[1])) if len(words) == 2 else None
+    downs = touch_downs(run / events, start)
     aimed = [tuple(p) for p in task["aim"]["points"]]
     if len(downs) != expect_taps:
         return answer(obs, "fail", f"{len(downs)} touch-downs recorded, {expect_taps} expected: {downs}", "exact")
@@ -71,6 +80,18 @@ def judge_input_events(run: Path, obs: dict, task: dict, expect_taps: int) -> No
     if off:
         return answer(obs, "fail", f"touch-downs away from their aim: {off}", "exact")
     answer(obs, "pass", f"{len(downs)} touch-downs, each within {TAP_TOLERANCE} of its aim: {downs}", "exact")
+
+
+def judge_app_state(run: Path, obs: dict) -> None:
+    """A journey step's exact observer: the app's answer to the step's check, asked after the act."""
+    if not obs["evidence"]:
+        return answer(obs, "not_observed", "the app's state did not come back from the tablet", "exact")
+    st = json.loads((run / obs["evidence"][0]).read_text())
+    if "error" in st:
+        return answer(obs, "not_observed", f"the app could not be asked: {st['error']}", "exact")
+    if st.get("value") is True:
+        return answer(obs, "pass", f"`{st['expression']}` is true", "exact")
+    answer(obs, "fail", f"`{st['expression']}` gave {json.dumps(st.get('value'))}", "exact")
 
 
 def judge_sink(run: Path, obs: dict, expected: str) -> None:
@@ -192,12 +213,43 @@ def client() -> JevClient:
     return JevClient("https://openrouter.ai/api", port=HostedPort(images="state"), api_key_env=key, timeout_s=30.0)
 
 
+def screen_questions(description_path: str) -> dict:
+    """A journey step's picture question: does this screen show what the step should lead to? The
+    description names what must be visible and, where the screen before would otherwise pass, what
+    does not count; it is read literally."""
+    def q(image: str) -> dict:
+        return {
+            "type": "noul",
+            "instructions": {
+                "question": f"Does the picture in `{image}` show what `{description_path}` describes?",
+                "focus": "The picture is part of a tablet app's screen. Every part of the description must be visible, and anything the description says does not count must not be what makes it true.",
+            },
+            "criteria": {
+                "true": {"what": "Everything the description names can be seen in the picture"},
+                "false": {"what": "Something the description names is missing, or the picture shows a different screen"},
+            },
+        }
+    return {"after_matches": q("after"), "before_matches": q("before")}
+
+
 def ask_word(jev: JevClient, before_png: Path, after_png: Path, word: str) -> tuple[str, str]:
     ref_b, asset_b = jev_images.asset_path(before_png, "before")
     ref_a, asset_a = jev_images.asset_path(after_png, "after")
     state = {"before": ref_b, "after": ref_a, "expected_word": word}
     got = jev.ask_many(state, word_questions("expected_word"), assets={ref_b: asset_b, ref_a: asset_a})
-    a, b = got["after_shows_word"], got["before_shows_word"]
+    return decide(got["after_shows_word"], got["before_shows_word"], "showing the word")
+
+
+def ask_screen(jev: JevClient, before_png: Path, after_png: Path, description: str) -> tuple[str, str]:
+    ref_b, asset_b = jev_images.asset_path(before_png, "before")
+    ref_a, asset_a = jev_images.asset_path(after_png, "after")
+    state = {"before": ref_b, "after": ref_a, "expected_screen": description}
+    got = jev.ask_many(state, screen_questions("expected_screen"), assets={ref_b: asset_b, ref_a: asset_a})
+    return decide(got["after_matches"], got["before_matches"], "matching the description")
+
+
+def decide(a, b, what: str) -> tuple[str, str]:
+    """After must read high and before, the control, low. Anything else is not a pass."""
     if not (a.usable and b.usable):
         reason = a.reason if not a.usable else b.reason
         return "not_observed", f"Jev abstained ({reason})"
@@ -207,41 +259,44 @@ def ask_word(jev: JevClient, before_png: Path, after_png: Path, word: str) -> tu
     if a.value <= AFTER_FAIL:
         return "fail", detail
     if b.value > BEFORE_MAX:
-        return "not_observed", detail + "; the control already read as showing the word"
+        return "not_observed", detail + f"; the control already read as {what}"
     return "not_observed", detail + "; between the thresholds, a case for a person"
 
 
-def judge_framebuffer(run: Path, obs: dict, fb: dict, word: str, jev: JevClient | None, region):
-    """Answer the framebuffer observer, and return the changed box (framebuffer pixels) or None."""
+def judge_framebuffer(run: Path, obs: dict, fb: dict, ask, region, sub: str = ""):
+    """Answer the framebuffer observer, and return the changed box (framebuffer pixels) or None.
+    `ask(before_png, after_png)` is the Jev question, or None without a key; files go under `sub`."""
+    out = (lambda f: f"{sub}/{f}") if sub else (lambda f: f)
     names = [n for n in obs["evidence"] if n.endswith(".rgba.gz")]   # the captures, not an earlier judge's crops
     obs["evidence"] = list(names)
     if len(names) != 2:
         answer(obs, "not_observed", "a framebuffer capture is missing", "exact")
         return None
     before, after = (gzip.decompress((run / n).read_bytes()) for n in names)
-    framebuffer_png(before, fb, run / "framebuffer-before.png")
-    framebuffer_png(after, fb, run / "framebuffer-after.png")
+    framebuffer_png(before, fb, run / out("framebuffer-before.png"))
+    framebuffer_png(after, fb, run / out("framebuffer-after.png"))
     box = changed_box(before, after, fb["width"], fb["height"], fb["stride"], 4, 24, region)
-    where = "inside the sink window" if region else "anywhere on the screen"
+    where = "inside the window" if region else "anywhere on the screen"
     if box is None:
         answer(obs, "fail", f"nothing changed {where}", "exact")
         return None
     crop = pad(box, 24, fb["width"], fb["height"])
-    framebuffer_png(before, fb, run / "framebuffer-before-crop.png", crop)
-    framebuffer_png(after, fb, run / "framebuffer-after-crop.png", crop)
-    obs["evidence"] += ["framebuffer-before.png", "framebuffer-after.png", "framebuffer-before-crop.png", "framebuffer-after-crop.png"]
-    if jev is None:
+    framebuffer_png(before, fb, run / out("framebuffer-before-crop.png"), crop)
+    framebuffer_png(after, fb, run / out("framebuffer-after-crop.png"), crop)
+    obs["evidence"] += [out(f) for f in ("framebuffer-before.png", "framebuffer-after.png", "framebuffer-before-crop.png", "framebuffer-after-crop.png")]
+    if ask is None:
         answer(obs, "not_observed", f"changed region {crop}; no Jev key to read it", "exact")
         return crop
-    verdict, detail = ask_word(jev, run / "framebuffer-before-crop.png", run / "framebuffer-after-crop.png", word)
+    verdict, detail = ask(run / out("framebuffer-before-crop.png"), run / out("framebuffer-after-crop.png"))
     answer(obs, verdict, f"changed region x={crop[0]} y={crop[1]} {crop[2]}x{crop[3]}. {detail}", "diff + jev")
     return crop
 
 
-def judge_webcam(run: Path, obs: dict, word: str, jev: JevClient | None, fb: dict, region, fb_box) -> None:
+def judge_webcam(run: Path, obs: dict, ask, fb: dict, region, fb_box, sub: str = "") -> None:
     """The framebuffer says where the change is; the webcam says whether the glass shows it. A
     diff of two webcam frames finds sensor noise everywhere (measured 2026-10-23), so the crop
     comes from the framebuffer's changed box, carried onto the screen as the camera sees it."""
+    out = (lambda f: f"{sub}/{f}") if sub else (lambda f: f)
     names = [n for n in obs["evidence"] if n.endswith(".jpg")]       # the captures, not an earlier judge's crops
     obs["evidence"] = list(names)
     if len(names) != 2:
@@ -260,12 +315,12 @@ def judge_webcam(run: Path, obs: dict, word: str, jev: JevClient | None, fb: dic
     kx, ky = sww / fb["width"], shh / fb["height"]
     x, y = int(sx + target[0] * kx), int(sy + target[1] * ky)
     x, y, w, h = pad((x, y, int(target[2] * kx) + 1, int(target[3] * ky) + 1), 24, 1080, 1920)
-    for n, out in zip(names, ("webcam-before-crop.png", "webcam-after-crop.png")):
-        ffmpeg("-i", str(run / n), "-vf", f"crop={w}:{h}:{x}:{y},{fit_for_jev(w, h)}", "-frames:v", "1", "-y", str(run / out))
-    obs["evidence"] += ["webcam-before-crop.png", "webcam-after-crop.png"]
-    if jev is None:
+    for n, crop in zip(names, (out("webcam-before-crop.png"), out("webcam-after-crop.png"))):
+        ffmpeg("-i", str(run / n), "-vf", f"crop={w}:{h}:{x}:{y},{fit_for_jev(w, h)}", "-frames:v", "1", "-y", str(run / crop))
+    obs["evidence"] += [out("webcam-before-crop.png"), out("webcam-after-crop.png")]
+    if ask is None:
         return answer(obs, "not_observed", "no Jev key to read the frame", "exact")
-    verdict, detail = ask_word(jev, run / "webcam-before-crop.png", run / "webcam-after-crop.png", word)
+    verdict, detail = ask(run / out("webcam-before-crop.png"), run / out("webcam-after-crop.png"))
     answer(obs, verdict, f"changed region x={x} y={y} {w}x{h}. {detail}", "diff + jev")
 
 
@@ -290,7 +345,7 @@ def page(record: dict) -> str:
             f'<p class="exp">expected: {html.escape(o["expected"])}</p></div>'
             for name, o in t["observers"].items())
         pics = [(f, f.replace("-", " ").rsplit(".", 1)[0]) for o in t["observers"].values() for f in o["evidence"]
-                if f.endswith((".png", ".jpg")) and ("crop" in f or f.startswith("webcam"))]
+                if f.endswith((".png", ".jpg")) and ("crop" in f or Path(f).name.startswith("webcam"))]
         aim = t.get("aim") or {}
         parts.append(
             f'<section class="task"><h2>{html.escape(t["title"])}</h2>'
@@ -337,18 +392,30 @@ def main() -> int:
     task_files = {p.stem: tomllib.loads(p.read_text()) for p in (Path(__file__).resolve().parent.parent / "tasks").glob("*.toml")}
     jev = None if a.no_jev else client()
     for t in record["tasks"]:
-        spec = task_files[t["task"]]
         obs = t["observers"]
         if t["acted"] is not True:
             for o in obs.values():
                 answer(o, "not_attempted", t.get("act_detail") or "the act did not run", "exact")
             continue
-        word = spec["expect"]["sink_text"]
         region = tuple(t["region"]) if t.get("region") else None
+        if "app_state" in obs:
+            # A journey step: its files sit in their own directory, and its pictures are asked
+            # whether they show what the step should lead to.
+            sub = str(Path(next(f for o in obs.values() for f in o["evidence"])).parent)
+            ask_fb = (lambda b, af, d=obs["framebuffer"]["expected"]: ask_screen(jev, b, af, d)) if jev else None
+            ask_cam = (lambda b, af, d=obs["webcam"]["expected"]: ask_screen(jev, b, af, d)) if jev else None
+            guarded(obs["input_events"], judge_input_events, a.run, obs["input_events"], t, len(t["aim"]["points"]))
+            guarded(obs["app_state"], judge_app_state, a.run, obs["app_state"])
+            fb_box = guarded(obs["framebuffer"], judge_framebuffer, a.run, obs["framebuffer"], profile["framebuffer"], ask_fb, region, sub)
+            guarded(obs["webcam"], judge_webcam, a.run, obs["webcam"], ask_cam, profile["framebuffer"], region, fb_box, sub)
+            continue
+        spec = task_files[t["task"]]
+        word = spec["expect"]["sink_text"]
+        ask = (lambda b, af: ask_word(jev, b, af, word)) if jev else None
         guarded(obs["input_events"], judge_input_events, a.run, obs["input_events"], t, spec["expect"]["taps"])
         guarded(obs["sink"], judge_sink, a.run, obs["sink"], word)
-        fb_box = guarded(obs["framebuffer"], judge_framebuffer, a.run, obs["framebuffer"], profile["framebuffer"], word, jev, region)
-        guarded(obs["webcam"], judge_webcam, a.run, obs["webcam"], word, jev, profile["framebuffer"], region, fb_box)
+        fb_box = guarded(obs["framebuffer"], judge_framebuffer, a.run, obs["framebuffer"], profile["framebuffer"], ask, region)
+        guarded(obs["webcam"], judge_webcam, a.run, obs["webcam"], ask, profile["framebuffer"], region, fb_box)
     (a.run / "record.json").write_text(json.dumps(record, indent=2) + "\n")
     (a.run / "index.html").write_text(page(record))
     for t in record["tasks"]:

@@ -20,16 +20,28 @@ long time. → **four gates**
   the bottom and wvkbd moved up 36 px (row 1512 to 1476). The replay's premise, keys where Parker typed
   them, no longer holds; slice 3 (aim from the live layout) is the fix, or retiring wvkbd for Ragtop's
   keyboard. Run: `runs/type-hello-20261023-114724` (local).
-- [ ] Slice 3 — any word: key centres from wvkbd's layout tables
+- [x] Slice 3 — aim from the live layout. Done 2026-10-23, not as planned: key centres are found in
+      the framebuffer each time (`potato-agent keys`, rows of 14, 14, 14, 14, 13 and 10 keys on the onn)
+      rather than read from wvkbd's tables, and a web app's elements are placed by the page itself
+      through Chromium's DevTools port (`potato-agent cdp`). Parker asked for the tests to run *inside* a
+      program built for a tablet, so the slice became journeys (`potato journey`): Orthodox Lampada
+      walked through in nine steps, with a swipe, typing and an app-state observer. Take 4
+      (`runs/lampada-walk-20261023-130929`, local) answered pass on all 36 observers.
+      Found on the way: the kernel drops a touch coordinate equal to the slot's last one, so the
+      recorder now notes where the slot stood (two false fails in take 1). "A list of saints … with no
+      panel open over it" read 0.79 and 0.72, under the 0.8 bar both times; describing what comes back
+      instead read 0.95.
+      Still open: `type-hello` replays recorded points and still fails since Ragtop moved the keyboard;
+      it should aim with `potato-agent keys` too.
 - [ ] Slice 4 — the rest of the task library
 - [ ] Slice 5 — the skill, and a published example record
 
 ## Notes for a fresh session
 - Parker's brief for this kit is his note on 2026-10-23, quoted in `01-product.md`. He concurred
   on Ragtop as the tablet layer and on an agent driving the tablet.
-- The tablet is the onn 10.1" Tablet Pro, booting Omarchy natively. It has no Wi-Fi, so the only
-  link is the USB serial gadget (`1d6b:0104`, serial `onn-native-0`), driven by `native-exec.py`
-  in the private onn-omarchy workspace.
+- The tablet is the onn 10.1" Tablet Pro, booting Omarchy natively. The kit's link is the USB serial
+  gadget (`1d6b:0104`, serial `onn-native-0`). Since 2026-10-23 it also has Wi-Fi and SSH at every
+  boot (`ssh onn`), which the kit does not need.
 - The serial port is opened without sudo through a uaccess udev rule, `kit/udev/70-onn-tablet.rules`,
   installed by an agent with sudo on 2026-10-23 and passing `udevadm verify`. (Agents run sudo
   themselves on this box; nothing in the kit's setup is handed to a person to paste.)

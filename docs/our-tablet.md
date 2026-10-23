@@ -40,6 +40,8 @@ Measured on 2026-10-23 after cold reboots, with nobody touching the tablet.
 | Battery level | reads a real percentage | [30-battery.sh](onn/boot.d/30-battery.sh): the vendor fuel-gauge daemon |
 | Tablet layer | Ragtop, in tablet mode, with its touch menu and lock-screen keyboard | installed with `omarchy plugin add`, setup driven by the diagnostic kit's synthetic taps |
 | Touch typing | works on both keyboards | calibrated from Parker's physical taps |
+| A web app, by touch | Chromium 153 runs Orthodox Lampada in an app window; tapping, typing on the on-screen keyboard and scrolling all reach it | [onn-webapp](onn/bin/onn-webapp) and its [flags](onn/bin/chromium-flags.conf); walked through by the kit's [journey](../kit/README.md#walk-through-an-app), all 36 checks passing |
+| Loopback | up at boot | [05-loopback.sh](onn/boot.d/05-loopback.sh): BusyBox init leaves `lo` down |
 | Software rendering | llvmpipe, refresh capped at 10 Hz | the PowerVR GPU has no open driver |
 | A persistent home | plugins and settings survive reboot | the boot image binds `/var/lib/onn-omarchy/home` over the desktop's home |
 | A way back | a rescue command and a 15-minute boot timer return it to Fastboot | |

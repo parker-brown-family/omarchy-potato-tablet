@@ -3,6 +3,7 @@
     python3 -m unittest judge/test_judge.py
 """
 import importlib.util
+import json
 import struct
 import tempfile
 import unittest
@@ -38,6 +39,15 @@ class TouchDowns(unittest.TestCase):
         path = Path(self.dir.name) / "events.bin"
         path.write_bytes(raw)
         self.assertEqual(judge.touch_downs(path), [(104, 998), (144, 563)])
+
+    def test_a_position_the_kernel_did_not_repeat_comes_from_where_the_slot_stood(self):
+        # The second back-button tap of 2026-10-23: same X as the tap before it, so only Y was sent.
+        ev = lambda t, c, v: struct.pack("<qqHHi", 0, 0, t, c, v)
+        raw = ev(3, 54, 1668) + ev(3, 57, 1000) + ev(1, 330, 1) + ev(0, 0, 0) + ev(3, 57, -1) + ev(1, 330, 0) + ev(0, 0, 0)
+        path = Path(self.dir.name) / "events.bin"
+        path.write_bytes(raw)
+        self.assertEqual(judge.touch_downs(path, (1116, 1621)), [(1116, 1668)])
+        self.assertEqual(judge.touch_downs(path), [], "without the start, an X that was never sent stays unknown")
 
     def test_pressure_changes_during_a_hold_are_not_new_touches(self):
         raw = tap_like_the_himax(97, 1417, 5)
@@ -82,6 +92,28 @@ class ScreenBox(unittest.TestCase):
             for x in range(w):
                 g[y * w + x] = 0
         self.assertIsNone(judge.screen_box(bytes(g), w, h, 1200 / 1920))
+
+
+class AppState(unittest.TestCase):
+    """A journey step's exact observer has three answers, and only a literal true passes."""
+
+    def judge(self, state: dict | None) -> dict:
+        d = Path(tempfile.mkdtemp())
+        obs = {"answer": None, "expected": "x", "evidence": [], "detail": None, "judged_by": None}
+        if state is not None:
+            (d / "app-state.json").write_text(json.dumps(state))
+            obs["evidence"] = ["app-state.json"]
+        judge.judge_app_state(d, obs)
+        return obs
+
+    def test_true_passes_and_anything_else_the_app_says_fails(self):
+        self.assertEqual(self.judge({"expression": "v === 'day'", "value": True})["answer"], "pass")
+        self.assertEqual(self.judge({"expression": "v === 'day'", "value": False})["answer"], "fail")
+        self.assertEqual(self.judge({"expression": "v", "value": "day"})["answer"], "fail", "truthy is not true")
+
+    def test_an_app_that_could_not_be_asked_is_not_observed_not_failed(self):
+        self.assertEqual(self.judge({"expression": "v", "error": "no page"})["answer"], "not_observed")
+        self.assertEqual(self.judge(None)["answer"], "not_observed")
 
 
 if __name__ == "__main__":

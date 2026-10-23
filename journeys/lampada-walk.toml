@@ -1,0 +1,106 @@
+# Walk through Orthodox Lampada by touch: a children's app built to run on a tablet, used here as
+# the program the tablet has to work for. Every step is one synthetic touch (or a word typed on the
+# on-screen keyboard), aimed from where the app and the keyboard are drawn at that moment, and
+# checked three ways: the app's own state, the framebuffer, and the webcam above the glass.
+#
+# The app is served on the tablet itself (boot hook 40-lampada.sh) and opened with onn-webapp,
+# which gives Chromium the DevTools port the aim reads from.
+
+name = "lampada-walk"
+title = "Walk through Orthodox Lampada by touch"
+kind = "regression"
+input = "synthetic"
+
+[app]
+title = "Orthodox Lampada"
+url = "http://127.0.0.1:8973/"
+launch = "/usr/local/bin/onn-webapp"
+cdp_port = 9222
+start = "location.reload()"
+start_check = "document.body.dataset.view === 'home' && !document.getElementById('tray').open"
+start_settle_ms = 6000
+settle_ms = 3000
+hold_ms = 80
+gap_ms = 450
+
+[[step]]
+name = "open-calendar"
+title = "Open the church calendar"
+tap = "button.tile"
+text = "Church Calendar"
+outcome = "the church calendar opens"
+check = "document.body.dataset.view === 'calendar'"
+screen = "A month calendar: a grid of numbered days, most of them with a small icon, under a month name and year"
+
+[[step]]
+name = "open-today"
+title = "Open today"
+tap = "#calGrid .cell.today"
+outcome = "today's page opens"
+check = "document.body.dataset.view === 'day'"
+screen = "A page about a single day of the church year, headed by one date and naming the saints remembered that day. A grid of many numbered days does not count"
+
+[[step]]
+name = "back-to-calendar"
+title = "Go back to the calendar"
+tap = "#backBtn"
+outcome = "the app goes back to the calendar"
+check = "document.body.dataset.view === 'calendar'"
+screen = "A month calendar: a grid of numbered days, most of them with a small icon, under a month name and year"
+
+[[step]]
+name = "back-home"
+title = "Go back home"
+tap = "#backBtn"
+outcome = "the app goes back to its home screen"
+check = "document.body.dataset.view === 'home'"
+screen = "The app's home screen: a greeting for the day at the top, and large tiles below it such as Church Calendar and Lives of the Saints"
+
+[[step]]
+name = "open-saints"
+title = "Open the lives of the saints"
+tap = "button.tile"
+text = "Lives of the Saints"
+outcome = "the list of saints opens"
+check = "document.body.dataset.view === 'saints'"
+screen = "A list of saints, each with a small icon and a name, below a search box"
+
+[[step]]
+name = "search-lion"
+title = "Type lion into the search box"
+tap = "#saintSearch"
+keys = "lion"
+outcome = "the search box holds the word lion"
+check = "document.getElementById('saintSearch').value === 'lion'"
+screen = "A search box with the word lion typed into it. Placeholder text such as 'Search a saint or feast' does not count"
+
+[[step]]
+# Gerasimos is the fourth of the five results, below the fold under the app's footer, so a person
+# scrolls first. The drag starts on the first result and moves the list up by 320 CSS pixels.
+name = "scroll-results"
+title = "Scroll the results up"
+tap = "#saintList button.scard"
+swipe = [0, -320]
+outcome = "the list scrolls until Saint Gerasimos can be tapped"
+check = "(() => { const e = [...document.querySelectorAll('#saintList button.scard')].find(b => b.textContent.includes('Gerasimos')); if (!e) return false; const r = e.getBoundingClientRect(); const h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!h && e.contains(h); })()"
+screen = "A list of saints in which the name Gerasimos can be read"
+
+[[step]]
+name = "open-gerasimos"
+title = "Open Saint Gerasimos"
+tap = "#saintList button.scard"
+text = "Gerasimos"
+outcome = "a panel opens on Saint Gerasimos"
+check = "document.getElementById('tray').open && document.getElementById('trayTitle').textContent.includes('Gerasimos')"
+screen = "An open panel whose heading is the name Gerasimos, with that saint's story below it. A list of several saints with no panel open does not count"
+
+[[step]]
+name = "close-panel"
+title = "Close the panel"
+tap = "#tray .tray-x"
+outcome = "the panel closes, back to the list"
+check = "!document.getElementById('tray').open && document.body.dataset.view === 'saints'"
+# Said positively, by what comes back. "A list of saints below a search box, with no panel open over
+# it" read 0.79 and 0.72 on the framebuffer in two takes on 2026-10-23, under the 0.8 bar both times,
+# while every other step read 0.87 or more: a description that asks Jev to see an absence.
+screen = "The saints search page: a search box holding the word lion, and below it saint cards such as Cyril and Methodius"
