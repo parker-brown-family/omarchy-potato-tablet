@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup: a diagnostic run</title>
+<style>
+  :root { --bg:#0f1117; --panel:#171a22; --line:#2a2f3b; --fg:#e6e6e6; --dim:#9aa0ab;
+          --pass:#2fb67c; --fail:#e0684b; --unk:#8b8a80; --skip:#5b6170; --mono: ui-monospace, "JetBrains Mono", monospace; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 28px 20px 60px; }
+  .mock { display: inline-block; font: 700 11px var(--mono); letter-spacing: .1em; color: #f5c95f;
+          border: 1px dashed #f5c95f; padding: 2px 8px; border-radius: 4px; margin-bottom: 14px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .meta { color: var(--dim); font: 12.5px var(--mono); margin-bottom: 22px; }
+  .sum { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 26px; }
+  .sum span { font: 700 12px var(--mono); padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); }
+  .task { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+  .task h2 { font-size: 17px; margin: 0 0 2px; }
+  .task .how { color: var(--dim); font: 12px var(--mono); margin-bottom: 12px; }
+  .obs { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin-bottom: 14px; }
+  .ob { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+  .ob b { display: block; font: 700 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+  .v { font: 700 12px var(--mono); }
+  .pass { color: var(--pass); } .fail { color: var(--fail); } .unk { color: var(--unk); } .skip { color: var(--skip); }
+  .ob.unk { border-style: dashed; }
+  .frames { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; }
+  .fr { font: 11px var(--mono); color: var(--dim); }
+  .screen { aspect-ratio: 5/8; border-radius: 8px; border: 1px solid var(--line); background: #1d2230;
+            position: relative; overflow: hidden; margin-bottom: 4px; }
+  .screen .bar { height: 7%; background: #262c3b; }
+  .screen .term { position: absolute; left: 8%; right: 8%; top: 12%; height: 34%; background: #11141b;
+                  border-radius: 4px; font: 11px var(--mono); color: #cfd3dc; padding: 6px; }
+  .screen .kbd { position: absolute; left: 0; right: 0; bottom: 0; height: 30%; background:
+                 repeating-linear-gradient(90deg, #2c3344 0 9%, #1d2230 9% 10%); opacity: .9; }
+  .screen.cam { background: radial-gradient(circle at 30% 20%, #3a3f4c, #15171d 70%); filter: blur(.3px); }
+  .screen.cam .glare { position: absolute; inset: 0; background: linear-gradient(120deg, transparent 40%, #ffffff22 50%, transparent 60%); }
+  .screen.none { background: repeating-linear-gradient(45deg, #1a1c22 0 8px, #15171c 8px 16px); display: flex;
+                 align-items: center; justify-content: center; color: var(--unk); font: 11px var(--mono); border-style: dashed; }
+  .grid { position: absolute; inset: 0; }
+  .dot { position: absolute; width: 9px; height: 9px; margin: -4px; border-radius: 50%; background: var(--pass); }
+  .dot.miss { background: var(--fail); box-shadow: 0 0 0 3px #e0684b55; }
+  .note { color: var(--dim); font-size: 13px; margin-top: 10px; }
+  @media (max-width: 640px) { .obs { grid-template-columns: 1fr; } .frames { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+</style></head><body><div class="wrap">
+<h1>Diagnostic run · onn 10.1" Tablet Pro</h1>
+<div class="meta">2026-10-24 09:12 · link: USB serial · input: synthetic · webcam: C920, fixed above the tablet</div>
+<div class="sum">
+  <span class="pass">1 task passed</span><span class="fail">1 failed</span><span class="skip">3 not attempted</span><span class="unk">1 observer could not see</span>
+</div>
+
+<div class="task">
+  <h2>Type hello</h2>
+  <div class="how">5 synthetic taps at the key centres of h e l l o · 1.4 s</div>
+  <div class="obs">
+    <div class="ob"><b>Framebuffer</b><span class="v pass">pass</span> Foot shows "hello"</div>
+    <div class="ob"><b>Webcam</b><span class="v pass">pass</span> Jev: text appeared in the terminal, p = 0.91</div>
+    <div class="ob"><b>Input events</b><span class="v pass">pass</span> 5 down, 5 up, all inside the key bounds</div>
+  </div>
+  <div class="frames">
+    <div><div class="screen"><div class="bar"></div><div class="term">$</div><div class="kbd"></div></div><div class="fr">framebuffer · before</div></div>
+    <div><div class="screen"><div class="bar"></div><div class="term">$ hello</div><div class="kbd"></div></div><div class="fr">framebuffer · after</div></div>
+    <div><div class="screen cam"><div class="glare"></div></div><div class="fr">webcam · before</div></div>
+    <div><div class="screen cam"><div class="glare"></div></div><div class="fr">webcam · after</div></div>
+  </div>
+</div>
+
+<div class="task">
+  <h2>Calibration sweep</h2>
+  <div class="how">9 synthetic taps on a 3 × 3 grid · 2.1 s</div>
+  <div class="obs">
+    <div class="ob"><b>Framebuffer</b><span class="v fail">fail</span> 2 of 9 taps drawn outside their target</div>
+    <div class="ob unk"><b>Webcam</b><span class="v unk">not observed</span> frame too dark to read</div>
+    <div class="ob"><b>Input events</b><span class="v pass">pass</span> 9 down, 9 up</div>
+  </div>
+  <div class="frames">
+    <div><div class="screen"><div class="grid">
+      <i class="dot" style="left:20%;top:20%"></i><i class="dot" style="left:50%;top:20%"></i><i class="dot miss" style="left:86%;top:16%"></i>
+      <i class="dot" style="left:20%;top:50%"></i><i class="dot" style="left:50%;top:50%"></i><i class="dot" style="left:80%;top:50%"></i>
+      <i class="dot" style="left:20%;top:80%"></i><i class="dot" style="left:50%;top:80%"></i><i class="dot miss" style="left:85%;top:86%"></i>
+    </div></div><div class="fr">framebuffer · after</div></div>
+    <div><div class="screen none">no usable frame</div><div class="fr">webcam · after</div></div>
+  </div>
+  <p class="note">The two misses are both on the right edge: the transform is right, the scale is off.</p>
+</div>
+
+<div class="task">
+  <h2>Rotate</h2>
+  <div class="how">not attempted · needs an accelerometer path, untested on this tablet</div>
+</div>
+<div class="task">
+  <h2>Wake</h2>
+  <div class="how">not attempted · suspend is untested on this tablet</div>
+</div>
+<div class="task">
+  <h2>Unlock</h2>
+  <div class="how">not attempted · this boot has no lock screen</div>
+</div>
+</div></body></html>
