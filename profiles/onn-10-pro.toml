@@ -1,0 +1,43 @@
+# The onn 10.1" Tablet Pro (100003562), booting Omarchy natively. Measured 2026-10-22 and 2026-10-23.
+
+[tablet]
+name = "onn 10.1\" Tablet Pro"
+
+[link]
+# The USB serial gadget the native boot exposes. "onn-native-0" is the name our boot image
+# gives the gadget, not a hardware serial number.
+kind = "serial"
+usb_vendor = "1d6b"
+usb_product = "0104"
+usb_serial = "onn-native-0"
+
+[touch]
+# The Himax panel: multitouch axes only, 0..1199 by 0..1919, the same size as the screen.
+device = "/dev/input/event3"
+x_max = 1199
+y_max = 1919
+
+[framebuffer]
+device = "/dev/fb0"
+width = 1200
+height = 1920
+stride = 4864
+format = "rgba"
+
+[calibration]
+# libinput matrix: screen x = y, screen y = 1 - x, in normalised coordinates.
+matrix = [0.0, 1.0, 0.0, -1.0, 0.0, 1.0]
+source = "Parker's physical hello after the final reboot on 2026-10-22, confirmed in a framebuffer capture"
+
+[desktop]
+# BusyBox is PID 1; the desktop runs as root inside the Arch root.
+chroot = "/os"
+runtime_dir = "/run/user/0"
+home = "/run/onn-probe/home"
+
+[webcam]
+# A Logitech C920 fixed above the tablet. Its frames come out a quarter-turn from the tablet,
+# and transpose=2 (90 degrees counter-clockwise) makes them upright. Measured 2026-10-23.
+device = "/dev/video2"
+size = "1920x1080"
+filter = "transpose=2"

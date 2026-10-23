@@ -1,0 +1,11 @@
+[workspace]
+members = ["potato", "potato-agent", "potato-record"]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+
+[profile.release]
+opt-level = "s"
+strip = true

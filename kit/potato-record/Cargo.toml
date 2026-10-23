@@ -1,0 +1,12 @@
+[package]
+name = "potato-record"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "The run record shared by the kit's capture and judge stages."
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1"

@@ -1,19 +1,25 @@
 # Status: diagnostic kit
 
-**Difficulty: 7/10** — a loop through the physical world (a webcam on real glass), touch injected
+**Difficulty: 7/10** (scored at the start) — a loop through the physical world (a webcam on real glass), touch injected
 on a device we only reach over a cable, and a verdict other people's agents will trust. The
 expensive mistake is a "pass" that really meant "could not see", and it can stay hidden for a
 long time. → **four gates**
-**Turned out to be:** _filled in at the end_
+**Turned out to be:** closer to 5 so far: Gates 1 and 2 came back approved with nothing changed, so Gates 3 and 4 were collapsed into one plan (`03-plan.md`).
 
 - Gate 1 — Product: APPROVED 2026-10-23 (onn only for now; C920 fixed above the tablet; *type hello* is the tracer bullet; frames judged as recommended)
-- Gate 2 — Architecture: in progress
-- Gate 3 — Program Design: pending
-- Gate 4 — Slice plan: pending
+- Gate 2 — Architecture: APPROVED 2026-10-23 ("concur all")
+- Gates 3 and 4 — Program design and slices: collapsed into `03-plan.md`, building
 
 ## Slices
-- [ ] Slice 1 — tracer bullet: "type hello" run end to end by an agent, with before and after
-      frames from the tablet and the webcam
+- [ ] Slice 1 — tracer bullet: type hello, replaying Parker's recorded touch points into a sink.
+      Built and tested off the tablet on 2026-10-23: the agent's events match the panel's byte
+      for byte under qemu; the serial protocol passes against the tablet's BusyBox on a pty (and
+      fails when its upload is broken on purpose); the judge passes yesterday's real hello pair and
+      fails it swapped. Waiting on the uaccess udev rule to run on the tablet.
+- [ ] Slice 2 — calibrate: four targets, fit the matrix from raw events
+- [ ] Slice 3 — any word: key centres from wvkbd's layout tables
+- [ ] Slice 4 — the rest of the task library
+- [ ] Slice 5 — the skill, and a published example record
 
 ## Notes for a fresh session
 - Parker's brief for this kit is his note on 2026-10-23, quoted in `01-product.md`. He concurred

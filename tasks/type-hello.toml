@@ -1,0 +1,23 @@
+# Type hello on the on-screen keyboard, into a terminal the kit opens for the purpose.
+#
+# The aim is not computed. It replays where Parker's finger touched the glass when he typed hello
+# after the final reboot on 2026-10-22, decoded from the raw events the tablet recorded. That makes
+# this a regression test of everything above the digitizer, aimed by a physical calibration.
+
+name = "type-hello"
+title = "Type hello"
+kind = "regression"
+input = "synthetic"
+
+[aim]
+source = "replay"
+provenance = "Parker's five touch-downs (h, e, l, l, o) from the touch-postboot-hello recording, 2026-10-22"
+points = [[104, 998], [144, 563], [97, 1417], [102, 1401], [137, 1363]]
+hold_ms = 80
+gap_ms = 350
+
+[expect]
+sink_text = "hello"
+taps = 5
+framebuffer = "a newly opened terminal window shows the word hello"
+webcam = "the tablet's screen shows a terminal with the word hello typed in it"
